@@ -1,0 +1,68 @@
+Global Variables:
+semaphore: mutex = 1, rmutex, wtr, rdr = 0
+int: nreaders, nwriters = 0
+boolean: Busy, RBlocked = False
+
+Reader:
+while True
+{
+    wait(r-mutex);
+    wait(mutex);
+    
+    if(nwriters>0)
+    {
+        RBlocked = True;
+        signal(mutex);
+        wait(rdr);
+    }
+    else
+    {
+        nreaders++;
+        signal(mutex);
+    }
+    signal(r-mutex);
+    READ
+    wait(mutex);
+    nreaders--;
+    if(nreaders=0 and nwriters>0)
+    {
+        Busy = True;
+        signal(wrt);
+    }
+    signal(mutex);
+    DO-SOMETHING
+}
+
+Writer:
+while True
+{
+    wait(mutex);
+    nwriters++;
+    if(Busy or nreaders > 0)
+    {
+        signal(mutex);
+        wait(wrt);
+    }
+    else
+    {
+        Busy = True;
+        signal(mutex);
+    }
+    WRITE
+    wait(mutex);
+    nwriters--;
+    Busy = False;
+    if(nwriters>0)
+    {
+        Busy = True;
+        signal(wrt);
+    }
+    else if(RBocked)
+    {
+        RBlocked = False;
+        nreaders++;
+        signal(rdr);
+    }
+    signal(mutex);
+    DO-SOMETHING
+}
