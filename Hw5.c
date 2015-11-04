@@ -1,4 +1,10 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+
 #include "Semaphore.h"
+
+#define KEY 64043
 
 #define NUM_SEM 4
 
@@ -14,7 +20,7 @@ void Writer();
 void Reader();
 
 /* Semaphores Initial Values */
-unsigned int InitVal[] = {1,0,0,0};
+unsigned short InitVal[] = {1,0,0,0};
 
 /* Integers */
 unsigned int nwriters;
@@ -61,14 +67,11 @@ int main(int argc, char *argv[])
     if ((seed = time(NULL)) < 0)
     {
         perror("time failed\n");
-        exit(EXIT_FAILURE):
+        exit(EXIT_FAILURE);
     }
-    if (srand(seed) < 0)
-    {
-        perror("srand failed\n");
-        exit(EXIT_FAILURE):
-    }
-    for (i = 0; i < numThreads, i++)
+    srand(seed);
+
+    for (i = 0; i < numThreads; i++)
     {
         unsigned int process = rand()%2;
         sleep(2 * sleepScale);
@@ -108,7 +111,7 @@ void Reader()
     if (nreaders == 0 && nwriters > 0)
     {
         Busy = TRUE;
-        Signal(semid, WRT);
+        Signal(semid, WTR);
     }
     Signal(semid, MUTEX);
     /* DO-SOMETHING */
@@ -121,7 +124,7 @@ void Writer()
     if (Busy || nreaders > 0)
     {
         Signal(semid, MUTEX);
-        Wait(semid, WRT);
+        Wait(semid, WTR);
     }
     else
     {
@@ -135,7 +138,7 @@ void Writer()
     if (nwriters > 0)
     {
         Busy = TRUE;
-        Signal(semid, WRT);
+        Signal(semid, WTR);
     }
     else if (RBlocked)
     {
