@@ -7,6 +7,9 @@
 #define WTR 2
 #define RDR 3
 
+#define TRUE 1
+#define FALSE 0
+
 void Writer();
 void Reader();
 
@@ -50,8 +53,8 @@ int main(int argc, char *argv[])
 /* Initialize Variables */
     nwriters = 0;
     nreaders = 0;
-    Busy = 0;
-    RBlocked = 0;
+    Busy = FALSE;
+    RBlocked = FALSE;
 
     int i;
     unsigned int seed;
@@ -84,10 +87,62 @@ int main(int argc, char *argv[])
 
 void Reader()
 {
+    Wait(semid, RMUTEX);
+    Wait(semid, MUTEX);
 
+    if (nwriters > 0)
+    {
+        RBlocked = TRUE;
+        Signal(semid, MUTEX);
+        Wait(semid, RDR);
+    }
+    else
+    {
+        nreaders++;
+        Signal(semid, MUTEX);
+    }
+    Signal(semid, RMUTEX);
+    /* READ */
+    Wait(semid, MUTEX);
+    nreaders--;
+    if (nreaders == 0 && nwriters > 0)
+    {
+        Busy = TRUE;
+        Signal(semid, WRT);
+    }
+    Signal(semid, MUTEX);
+    /* DO-SOMETHING */
 }
 
 void Writer()
 {
-
+    Wait(semid, MUTEX);
+    nwriters++;
+    if (Busy || nreaders > 0)
+    {
+        Signal(semid, MUTEX);
+        Wait(semid, WRT);
+    }
+    else
+    {
+        Busy = TRUE;
+        Signal(semid, MUTEX);
+    }
+    /* WRITE */
+    Wait(semid, MUTEX);
+    nwriters--;
+    Busy = FALSE;
+    if (nwriters > 0)
+    {
+        Busy = TRUE;
+        Signal(semid, WRT);
+    }
+    else if (RBlocked)
+    {
+        RBlocked = FALSE;
+        nreaders++;
+        Signal(semid, RDR);
+    }
+    Signal(semid, MUTEX);
+    /* DO-SOMETHING */
 }
