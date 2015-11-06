@@ -1,15 +1,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <unistd.h>
+#include <semaphore.h>
 
 #define KEY 64043
 
 #define NUM_SEM 4
-
-#define MUTEX 0
-#define RMUTEX 1
-#define WTR 2
-#define RDR 3
 
 #define TRUE 1
 #define FALSE 0
@@ -17,8 +14,10 @@
 void Writer();
 void Reader();
 
-/* Semaphores Initial Values */
-unsigned short InitVal[] = {1,0,0,0};
+/* Semaphores */
+sem_t mutex, rmutex, rdr, wtr;
+
+int semid;
 
 /* Integers */
 unsigned int nwriters;
@@ -27,8 +26,6 @@ unsigned int nreaders;
 /* Booleans */
 unsigned int Busy;
 unsigned int RBlocked;
-
-int semid;
 
 unsigned int numThreads;
 
@@ -52,7 +49,37 @@ int main(int argc, char *argv[])
     }
 
 /* Initialize Semaphores */
-    semid = CreateGroup(KEY, NUM_SEM, InitVal);
+    if (sem_init(&mutex, 0, (unsigned int)1) < 0)
+    {
+        perror("sem_init for mutex failed\n");
+        exit(EXIT_FAILURE);
+    }
+
+    printf("The semaphore mutex has been initialized with value 1\n");
+
+    if (sem_init(&rmutex, 0, (unsigned int)0) < 0)
+    {
+        perror("sem_init for rmutex failed\n");
+        exit(EXIT_FAILURE);
+    }
+
+    printf("The semaphore rmutex has been initialized with value 0\n");
+
+    if (sem_init(&wtr, 0, (unsigned int)0) < 0)
+    {
+        perror("sem_init for wtr failed\n");
+        exit(EXIT_FAILURE);
+    }
+
+    printf("The semaphore wtr has been initialized with value 0\n");
+
+    if (sem_init(&rdr, 0, (unsigned int)0) < 0)
+    {
+        perror("sem_init for rdr failed\n");
+        exit(EXIT_FAILURE);
+    }
+
+    printf("The semaphore rdr has been initialized with value 0\n");
 
 /* Initialize Variables */
     nwriters = 0;
@@ -88,62 +115,62 @@ int main(int argc, char *argv[])
 
 void Reader()
 {
-    Wait(semid, RMUTEX);
-    Wait(semid, MUTEX);
+    sem_wait(&rmutex);
+    sem_wait(&mutex);
 
     if (nwriters > 0)
     {
         RBlocked = TRUE;
-        Signal(semid, MUTEX);
-        Wait(semid, RDR);
+        sem_post(&mutex);
+        sem_wait(&rdr);
     }
     else
     {
         nreaders++;
-        Signal(semid, MUTEX);
+        sem_post(&mutex);
     }
-    Signal(semid, RMUTEX);
+    sem_post(&rmutex);
     /* READ */
-    Wait(semid, MUTEX);
+    sem_wait(&mutex);
     nreaders--;
     if (nreaders == 0 && nwriters > 0)
     {
         Busy = TRUE;
-        Signal(semid, WTR);
+        sem_post(&wtr);
     }
-    Signal(semid, MUTEX);
+    sem_post(&mutex);
     /* DO-SOMETHING */
 }
 
 void Writer()
 {
-    Wait(semid, MUTEX);
+    sem_wait(&mutex);
     nwriters++;
     if (Busy || nreaders > 0)
     {
-        Signal(semid, MUTEX);
-        Wait(semid, WTR);
+        sem_post(&mutex);
+        sem_wait(&wtr);
     }
     else
     {
         Busy = TRUE;
-        Signal(semid, MUTEX);
+        sem_post(&mutex);
     }
     /* WRITE */
-    Wait(semid, MUTEX);
+    sem_wait(&mutex);
     nwriters--;
     Busy = FALSE;
     if (nwriters > 0)
     {
         Busy = TRUE;
-        Signal(semid, WTR);
+        sem_post(&wtr);
     }
     else if (RBlocked)
     {
         RBlocked = FALSE;
         nreaders++;
-        Signal(semid, RDR);
+        sem_post(&rdr);
     }
-    Signal(semid, MUTEX);
+    sem_post(&mutex);
     /* DO-SOMETHING */
 }
