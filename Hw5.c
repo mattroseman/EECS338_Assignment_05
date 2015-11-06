@@ -39,7 +39,7 @@ int main(int argc, char *argv[])
     sleepScale = 1;
 
     signature = malloc(50 * sizeof(char));
-    if (sprintf(signature, "---TID %ld: ", syscall(SYS_gettid)) < 0)
+    if (sprintf(signature, "--- (main) TID %ld: ", syscall(SYS_gettid)) < 0)
     {
         perror ("sprintf failed\n");
         exit(EXIT_FAILURE);
@@ -55,7 +55,7 @@ int main(int argc, char *argv[])
     }
     else
     {
-        numThreads = 10;
+        numThreads = 5;
     }
 
 /* Initialize Semaphores */
@@ -115,24 +115,22 @@ int main(int argc, char *argv[])
         if (process == 0)
         {
             // Start Reader
-            if ((rc = pthread_create(&threads[i], NULL, &Reader, NULL)) != 0)
+            if ((rc = pthread_create(&threads[i], NULL, &Reader, &i)) != 0)
             {
                 perror("pthread_create() for Reader failed\n");
                 printf("return code %d\n", rc);
                 exit(EXIT_FAILURE);
             }
-            printf("%sStarting Reader\n", signature);
         }
         if (process == 1)
         {
             // Start Writer
-            if ((rc = pthread_create(&threads[i], NULL, &Writer, NULL)) != 0)
+            if ((rc = pthread_create(&threads[i], NULL, &Writer, &i)) != 0)
             {
                 perror("pthread_create() for Writer failed\n");
                 printf("return code %d\n", rc);
                 exit(EXIT_FAILURE);
             }
-            printf("%sStarting Writer\n", signature);
         }
     }
 
@@ -175,50 +173,95 @@ int main(int argc, char *argv[])
 
 void *Reader(void *arg)
 {
+    int threadNum = *(int *)arg;
+
     char * rsignature = malloc(50 * sizeof(char));
-    if (sprintf(rsignature, "---TID %ld: ", syscall(SYS_gettid)) < 0)
+    if (sprintf(rsignature, "--- [%d] (reader) TID %ld: ", threadNum, syscall(SYS_gettid)) < 0)
     {
         perror ("sprintf failed for rsignature\n");
         exit(EXIT_FAILURE);
     }
+    char * csrsignature = malloc(50 * sizeof(char));
+    if (sprintf(csrsignature, "*** [%d] (reader) TID %ld: ", threadNum, syscall(SYS_gettid)) < 0)
+    {
+        perror ("sprintf failed for csrsignature\n");
+        exit(EXIT_FAILURE);
+    }
+
+    printf("%sReader has started\n", rsignature);
+    sleep(2 * sleepScale);
 
     sem_wait(&mutex);
+    printf("%sEntering Critical Section\n", csrsignature);
+    sleep(2 * sleepScale);
     readcount++;
+    printf("%sthere are now %d readers reading\n", csrsignature, readcount);
+    sleep(2 * sleepScale);
     if (readcount == 1)
     {
         sem_wait(&wtr);
     }
+    printf("%sExiting Critical Section\n", csrsignature);
+    sleep(2 * sleepScale);
     sem_post(&mutex);
+
     /* Read */
+    printf("%snow reading\n", rsignature);
+    sleep(4 * sleepScale);
+
     sem_wait(&mutex);
+    printf("%sEntering Critical Section\n", csrsignature);
+    sleep(2 * sleepScale);
     readcount--;
+    printf("%sthere are now %d readers reading\n", csrsignature, readcount);
+    sleep(2 * sleepScale);
     if (readcount == 0)
     {
         sem_post(&wtr);
     }
+    printf("%sExiting Critical Section\n", csrsignature);
+    sleep(2 * sleepScale);
     sem_post(&mutex);
 
     printf("%sReader done\n", rsignature);
 
     free(rsignature);
+    free(csrsignature);
     pthread_exit(NULL);
 }
 
 void *Writer(void *arg)
 {
+    int threadNum = *(int *)arg;
+
     char * wsignature = malloc(50 * sizeof(char));
-    if (sprintf(wsignature, "---TID %ld: ", syscall(SYS_gettid)) < 0)
+    if (sprintf(wsignature, "--- [%d] (writer) TID %ld: ", threadNum, syscall(SYS_gettid)) < 0)
     {
-        perror ("sprintf failed\n");
+        perror ("sprintf failed for wsignature\n");
+        exit(EXIT_FAILURE);
+    }
+    char * cswsignature = malloc(50 * sizeof(char));
+    if (sprintf(cswsignature, "*** [%d] (writer) TID %ld: ", threadNum, syscall(SYS_gettid)) < 0)
+    {
+        perror("sprintf failed for cswsignature\n");
         exit(EXIT_FAILURE);
     }
 
     sem_wait(&wtr);
+    printf("%sEntering Critical Section\n", cswsignature);
+    sleep(2 * sleepScale);
+
     /* Write */
+    printf("%snow writing\n", cswsignature);
+    sleep(4 * sleepScale);
+
+    printf("%sExiting Critical Section\n", cswsignature);
+    sleep(2 * sleepScale);
     sem_post(&wtr);
 
     printf("%sWriter done\n", wsignature);
 
     free(wsignature);
+    free(cswsignature);
     pthread_exit(NULL);
 }
