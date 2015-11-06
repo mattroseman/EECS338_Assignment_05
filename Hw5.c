@@ -5,6 +5,7 @@
 #include <semaphore.h>
 #include <pthread.h>
 #include <sys/types.h>
+#include <sys/syscall.h>
 
 #define TRUE 1
 #define FALSE 0
@@ -42,7 +43,7 @@ int main(int argc, char *argv[])
     sleepScale = 1;
 
     signature = malloc(50 * sizeof(char));
-    if (sprintf(signature, "---TID %d: ", gettid()) < 0)
+    if (sprintf(signature, "---TID %ld: ", syscall(SYS_gettid)) < 0)
     {
         perror ("sprintf failed\n");
         exit(EXIT_FAILURE);
@@ -208,7 +209,7 @@ int main(int argc, char *argv[])
 void *Reader(void *arg)
 {
     char * rsignature = malloc(50 * sizeof(char));
-    if (sprintf(rsignature, "---TID %d: ",   (int)gettid()) < 0)
+    if (sprintf(rsignature, "---TID %ld: ", syscall(SYS_gettid)) < 0)
     {
         perror ("sprintf failed for rsignature\n");
         exit(EXIT_FAILURE);
@@ -248,7 +249,7 @@ void *Reader(void *arg)
 void *Writer(void *arg)
 {
     char * wsignature = malloc(50 * sizeof(char));
-    if (sprintf(wsignature, "---TID %d: ",   (int)gettid()) < 0)
+    if (sprintf(wsignature, "---TID %ld: ", syscall(SYS_gettid)) < 0)
     {
         perror ("sprintf failed\n");
         exit(EXIT_FAILURE);
