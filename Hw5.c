@@ -2,8 +2,6 @@
 #include <stdlib.h>
 #include <time.h>
 
-#include "Semaphore.h"
-
 #define KEY 64043
 
 #define NUM_SEM 4
