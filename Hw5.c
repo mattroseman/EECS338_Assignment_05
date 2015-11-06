@@ -14,7 +14,7 @@ void *Writer(void *);
 void *Reader(void *);
 
 /* Semaphores */
-sem_t mutex, rmutex, rdr, wtr;
+sem_t mutex, wtr;
 
 int semid;
 
@@ -24,13 +24,9 @@ int rc;
 pthread_attr_t attr;
 
 /* Integers */
-unsigned int nwriters;
-unsigned int nreaders;
+unsigned int readcount;
 
 /* Booleans */
-unsigned int Busy;
-unsigned int RBlocked;
-
 unsigned int numThreads;
 
 /* Misc. */
@@ -71,35 +67,16 @@ int main(int argc, char *argv[])
 
     printf("%sThe semaphore mutex has been initialized with value 1\n", signature);
 
-    if (sem_init(&rmutex, 0, (unsigned int)0) < 0)
-    {
-        perror("sem_init for rmutex failed\n");
-        exit(EXIT_FAILURE);
-    }
-
-    printf("%sThe semaphore rmutex has been initialized with value 0\n", signature);
-
-    if (sem_init(&wtr, 0, (unsigned int)0) < 0)
+    if (sem_init(&wtr, 0, (unsigned int)1) < 0)
     {
         perror("sem_init for wtr failed\n");
         exit(EXIT_FAILURE);
     }
 
-    printf("%sThe semaphore wtr has been initialized with value 0\n", signature);
-
-    if (sem_init(&rdr, 0, (unsigned int)0) < 0)
-    {
-        perror("sem_init for rdr failed\n");
-        exit(EXIT_FAILURE);
-    }
-
-    printf("%sThe semaphore rdr has been initialized with value 0\n", signature);
+    printf("%sThe semaphore wtr has been initialized with value 1\n", signature);
 
 /* Initialize Variables */
-    nwriters = 0;
-    nreaders = 0;
-    Busy = FALSE;
-    RBlocked = FALSE;
+    readcount = 0;
 
     int i;
     unsigned int seed;
@@ -185,19 +162,9 @@ int main(int argc, char *argv[])
         perror("sem_destroy on mutex failed\n");
         exit(EXIT_SUCCESS);
     }
-    if (sem_destroy(&rmutex) < 0)
-    {
-        perror("sem_destroy on rmutex failed\n");
-        exit(EXIT_SUCCESS);
-    }
     if (sem_destroy(&wtr) < 0)
     {
         perror("sem_destroy on wtr failed\n");
-        exit(EXIT_SUCCESS);
-    }
-    if (sem_destroy(&rdr) < 0)
-    {
-        perror("sem_destroy on rdr failed\n");
         exit(EXIT_SUCCESS);
     }
 
@@ -215,27 +182,18 @@ void *Reader(void *arg)
         exit(EXIT_FAILURE);
     }
 
-    sem_wait(&rmutex);
     sem_wait(&mutex);
-
-    if (nwriters > 0)
+    readcount++;
+    if (readcount == 1)
     {
-        RBlocked = TRUE;
-        sem_post(&mutex);
-        sem_wait(&rdr);
+        sem_wait(&wtr);
     }
-    else
-    {
-        nreaders++;
-        sem_post(&mutex);
-    }
-    sem_post(&rmutex);
-    /* READ */
+    sem_post(&mutex);
+    /* Read */
     sem_wait(&mutex);
-    nreaders--;
-    if (nreaders == 0 && nwriters > 0)
+    readcount--;
+    if (readcount == 0)
     {
-        Busy = TRUE;
         sem_post(&wtr);
     }
     sem_post(&mutex);
@@ -255,34 +213,9 @@ void *Writer(void *arg)
         exit(EXIT_FAILURE);
     }
 
-    sem_wait(&mutex);
-    nwriters++;
-    if (Busy || nreaders > 0)
-    {
-        sem_post(&mutex);
-        sem_wait(&wtr);
-    }
-    else
-    {
-        Busy = TRUE;
-        sem_post(&mutex);
-    }
-    /* WRITE */
-    sem_wait(&mutex);
-    nwriters--;
-    Busy = FALSE;
-    if (nwriters > 0)
-    {
-        Busy = TRUE;
-        sem_post(&wtr);
-    }
-    else if (RBlocked)
-    {
-        RBlocked = FALSE;
-        nreaders++;
-        sem_post(&rdr);
-    }
-    sem_post(&mutex);
+    sem_wait(&wtr);
+    /* Write */
+    sem_post(&wtr);
 
     printf("%sWriter done\n", wsignature);
 
