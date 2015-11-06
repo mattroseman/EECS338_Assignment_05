@@ -3,12 +3,13 @@
 #include <time.h>
 #include <unistd.h>
 #include <semaphore.h>
+#include <pthread.h>
 
 #define TRUE 1
 #define FALSE 0
 
-void Writer();
-void Reader();
+void *Writer(void *);
+void *Reader(void *);
 
 /* Semaphores */
 sem_t mutex, rmutex, rdr, wtr;
@@ -92,6 +93,21 @@ int main(int argc, char *argv[])
     }
     srand(seed);
 
+/* Initialize Threads */
+    pthread_t *threads = malloc(numThreads * sizeof(pthread_t));
+
+    pthread_attr_t *attr;
+    if (pthread_attr_init(attr) != 0)
+    {
+        perror("pthread_attr_init() failed\n");
+        exit(EXIT_FAILURE);
+    }
+    if (pthread_attr_setdetachstate(attr, PTHREAD_CREATE_JOINABLE) != 0)
+    {
+        perror("pthread_attr_setdetachstate() failed\n");
+        exit(EXIT_FAILURE);
+    }
+
 /* Start Threads */
     for (i = 0; i < numThreads; i++)
     {
@@ -99,15 +115,43 @@ int main(int argc, char *argv[])
         sleep(2 * sleepScale);
         if (process == 0)
         {
-            // start read
+            // Start Reader
+            if (pthread_create(&threads[i], NULL, &Reader, NULL) != 0)
+            {
+                perror("pthread_create() for Reader failed\n");
+                exit(EXIT_FAILURE);
+            }
         }
         if (process == 1)
         {
-            // start write
+            // Start Writer
+            if (pthread_create(&threads[i], NULL, &Writer, NULL) != 0)
+            {
+                perror("pthread_create() for Writer failed\n");
+                exit(EXIT_FAILURE);
+            }
         }
     }
 
 /* Cleanup */
+    // Wait for all the threads to finish and rejoin the main thread
+    for (i = 0; i < numThreads; i++)
+    {
+        if(pthread_join(threads[i], NULL) != 0)
+        {
+            perror("pthread_join() failed\n");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    free(threads);
+
+    if (pthread_attr_destroy(attr) != 0)
+    {
+        perror("pthread_attr_destroy() failed\n");
+        exit(EXIT_FAILURE);
+    }
+
     if (sem_destroy(&mutex) < 0)
     {
         perror("sem_destroy on mutex failed\n");
@@ -132,7 +176,7 @@ int main(int argc, char *argv[])
     exit(EXIT_SUCCESS);
 }
 
-void Reader()
+void *Reader(void *arg)
 {
     sem_wait(&rmutex);
     sem_wait(&mutex);
@@ -158,10 +202,11 @@ void Reader()
         sem_post(&wtr);
     }
     sem_post(&mutex);
-    /* DO-SOMETHING */
+
+    pthread_exit(NULL);
 }
 
-void Writer()
+void *Writer(void *arg)
 {
     sem_wait(&mutex);
     nwriters++;
@@ -191,5 +236,6 @@ void Writer()
         sem_post(&rdr);
     }
     sem_post(&mutex);
-    /* DO-SOMETHING */
+
+    pthread_exit(NULL);
 }
