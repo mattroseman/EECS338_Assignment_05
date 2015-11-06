@@ -4,10 +4,6 @@
 #include <unistd.h>
 #include <semaphore.h>
 
-#define KEY 64043
-
-#define NUM_SEM 4
-
 #define TRUE 1
 #define FALSE 0
 
@@ -96,6 +92,7 @@ int main(int argc, char *argv[])
     }
     srand(seed);
 
+/* Start Threads */
     for (i = 0; i < numThreads; i++)
     {
         unsigned int process = rand()%2;
@@ -108,6 +105,28 @@ int main(int argc, char *argv[])
         {
             // start write
         }
+    }
+
+/* Cleanup */
+    if (sem_destroy(&mutex) < 0)
+    {
+        perror("sem_destroy on mutex failed\n");
+        exit(EXIT_SUCCESS);
+    }
+    if (sem_destroy(&rmutex) < 0)
+    {
+        perror("sem_destroy on rmutex failed\n");
+        exit(EXIT_SUCCESS);
+    }
+    if (sem_destroy(&wtr) < 0)
+    {
+        perror("sem_destroy on wtr failed\n");
+        exit(EXIT_SUCCESS);
+    }
+    if (sem_destroy(&rdr) < 0)
+    {
+        perror("sem_destroy on rdr failed\n");
+        exit(EXIT_SUCCESS);
     }
 
     exit(EXIT_SUCCESS);
